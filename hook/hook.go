@@ -87,8 +87,14 @@ func (h *SpamBlockHook) SendBefore(ctx *context.Context, email *parsemail.Email)
 func (h *SpamBlockHook) ReceiveParseAfter(ctx *context.Context, email *parsemail.Email) {
 	// ctx 拿不到 user_id，也拿不到 is_admin，只能从 email 中获取
 	for _, user := range email.To {
-		// 只对本域用户进行处理
 		account, domain := user.GetDomainAccount()
+		// 对空账号进行处理
+		if account == "" || domain == "" {
+			logger.PluginLogger.Warn().Str("email", email.Subject).Msg("邮件中包含空账号")
+			email.Status = int(STATUS_DELETED)
+			break
+		}
+		// 只对本域用户进行处理
 		if domain != h.domain {
 			continue
 		}
