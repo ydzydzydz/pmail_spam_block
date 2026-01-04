@@ -7,6 +7,6 @@ export function get<T>(url: string, params?: object): Promise<ApiResponse<T>> {
 }
 
 // 通用POST请求
-export function post<T>(url: string, data?: object): Promise<ApiResponse<T>> {
-  return service.post(url, data)
+export function post<T>(url: string, data?: object, timeout?: number): Promise<ApiResponse<T>> {
+  return service.post(url, data, { timeout })
 }

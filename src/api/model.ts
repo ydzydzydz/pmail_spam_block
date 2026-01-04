@@ -3,6 +3,9 @@ import type { TestModel, TestModelData, ApiResponse } from '@/types'
 import { testModelResource } from '@/api/resource'
 
 // 测试模型
-export function postTestModel(request: TestModel): Promise<ApiResponse<TestModelData>> {
-  return post(testModelResource, request)
+export function postTestModel(
+  request: TestModel,
+  timeout?: number,
+): Promise<ApiResponse<TestModelData>> {
+  return post(testModelResource, request, timeout)
 }

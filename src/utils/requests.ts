@@ -5,7 +5,7 @@ import { pluginSettingsResource } from '@/api/resource'
 // 创建 Axios 实例
 const service: AxiosInstance = axios.create({
   baseURL: pluginSettingsResource, // 插件配置 API 基础路径
-  timeout: 5000, // 请求超时时间
+  timeout: 6000, // 请求超时时间
   headers: {
     'Content-Type': 'application/json;charset=utf-8', // 请求体内容类型
   },

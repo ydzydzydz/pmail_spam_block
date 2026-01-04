@@ -9,11 +9,26 @@
 
       <el-form :model="formData" label-width="180px" label-position="left" v-loading="loading">
         <el-form-item label="模型API接口地址：" prop="api_url">
-          <el-input v-model="formData.api_url" placeholder="请输入模型API接口地址" />
+          <el-input
+            v-model="formData.api_url"
+            placeholder="请输入模型API接口地址，置空则关闭插件"
+            clearable
+          />
         </el-form-item>
 
         <el-form-item label="接口超时时间（毫秒）：" prop="timeout">
-          <el-input-number v-model="formData.timeout" :min="1" :max="50000" :step="1">
+          <el-input-number
+            v-model="formData.timeout"
+            :min="1"
+            :max="300000"
+            :step="100"
+            :default-value="60000"
+            placeholder="请输入接口超时时间"
+            controls-position="right"
+            style="width: 100%"
+            :disabled="formData.api_url.trim().length === 0"
+            :value-on-clear="6000"
+          >
             <template #suffix>
               <span>ms</span>
             </template>
@@ -21,15 +36,22 @@
         </el-form-item>
 
         <el-form-item label="模型识别阈值（0-1）：" prop="threshold">
-          <el-slider v-model="formData.threshold" :min="0" :max="1" :step="0.01" />
+          <el-slider
+            v-model="formData.threshold"
+            :min="0"
+            :max="1"
+            :step="0.01"
+            :format-tooltip="(value: number) => `处理大于阈值 ${value.toFixed(2)} 的邮件`"
+            :disabled="formData.api_url.trim().length === 0"
+          />
         </el-form-item>
       </el-form>
 
       <el-form-item>
         <div class="form-item-buttons">
           <el-button
-            type="info"
-            :disabled="loading"
+            type="success"
+            :disabled="loading || formData.api_url.trim().length === 0"
             style="margin: 0 auto"
             @click="dialogVisible = true"
           >
@@ -179,7 +201,7 @@ const testModel = () => {
   }
   loading.value = true
   dialogVisible.value = false
-  postTestModel(testModel)
+  postTestModel(testModel, formData.value.timeout)
     .then((response) => {
       if (response.code === 0) {
         ElMessage.success(response.message || '模型接口测试成功')
