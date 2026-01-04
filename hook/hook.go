@@ -94,8 +94,10 @@ func (h *SpamBlockHook) ReceiveParseAfter(ctx *context.Context, email *parsemail
 			email.Status = int(STATUS_DELETED)
 			break
 		}
-		// 只对本域用户进行处理
+		// 对非本域用户的邮件，直接标记为已删除
+		// 若是正常邮件，循环到本域用户时会正常处理，把状态改回（应该吧）
 		if domain != h.domain {
+			email.Status = int(STATUS_DELETED)
 			continue
 		}
 		userID, err := h.userService.GetUserID(account)
