@@ -37,9 +37,9 @@ jobs:
         run: |
           pnpm build
           if [[ "${{ matrix.goos }}" = "windows" ]]; then
-            go build -o pmail_spam_block_${{ matrix.goos }}_${{ matrix.goarch }}.exe -ldflags="-s -w"
+            go build -o pmail_spam_block_${{ matrix.goos }}_${{ matrix.goarch }}.exe -ldflags="-s -w" -a -v
           else
-            go build -o pmail_spam_block_${{ matrix.goos }}_${{ matrix.goarch }} -ldflags="-s -w"
+            go build -o pmail_spam_block_${{ matrix.goos }}_${{ matrix.goarch }} -ldflags="-s -w" -a -v
           fi
         env:
           GOOS: ${{ matrix.goos }}
