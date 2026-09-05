@@ -1,6 +1,7 @@
 package hook
 
 import (
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
@@ -10,23 +11,15 @@ import (
 	"github.com/Jinnrry/pmail/hooks/framework"
 	"github.com/Jinnrry/pmail/models"
 	"github.com/Jinnrry/pmail/utils/context"
+	"github.com/ydzydzydz/pmail_spam_block/classifier"
+	"github.com/ydzydzydz/pmail_spam_block/controller"
 	"github.com/ydzydzydz/pmail_spam_block/db"
 	"github.com/ydzydzydz/pmail_spam_block/logger"
-	"github.com/ydzydzydz/pmail_spam_block/model"
 	"github.com/ydzydzydz/pmail_spam_block/service"
 )
 
 const (
 	PLUGIN_NAME = "pmail_spam_block" // 插件名称
-)
-
-// Class 模型结果分类
-type Class int
-
-const (
-	CLASS_NORMAL Class = iota // 正常邮件
-	CLASS_AD                  // 广告邮件
-	CLASS_SPAM                // 诈骗邮件
 )
 
 // EmailStatus 状态
@@ -40,12 +33,20 @@ const (
 	STATUS_AD       EmailStatus = 5    // 广告邮件
 )
 
+var (
+	//go:embed dist/index.html
+	SettingHtml string // 设置页面
+)
+
 // SpamBlockHook 插件钩子
 type SpamBlockHook struct {
-	domain         string
-	settingService *service.SettingService
-	userService    *service.UserService
+	domain            string
+	settingService    *service.SettingService
+	userService       *service.UserService
+	settingController *controller.SettingController
 }
+
+var _ framework.EmailHook = (*SpamBlockHook)(nil)
 
 // NewSpamBlockHook 创建垃圾邮件插件钩子
 func NewSpamBlockHook(cfg *config.Config) *SpamBlockHook {
@@ -55,16 +56,16 @@ func NewSpamBlockHook(cfg *config.Config) *SpamBlockHook {
 	}
 	logger.PluginLogger.Info().Msg("数据库初始化成功")
 
-	settingService := service.NewSettingService(dataSource.SettingDao())
-	userService := service.NewUserService(dataSource.UserDao())
+	settingService := service.NewSettingService(dataSource.DB())
+	userService := service.NewUserService(dataSource.DB())
+	settingController := controller.NewSettingController(settingService)
 	return &SpamBlockHook{
-		domain:         cfg.Domain,
-		settingService: settingService,
-		userService:    userService,
+		domain:            cfg.Domain,
+		settingService:    settingService,
+		userService:       userService,
+		settingController: settingController,
 	}
 }
-
-var _ framework.EmailHook = (*SpamBlockHook)(nil)
 
 // GetName 获取插件名称
 func (h *SpamBlockHook) GetName(ctx *context.Context) string { return PLUGIN_NAME }
@@ -121,66 +122,56 @@ func (h *SpamBlockHook) ReceiveParseAfter(ctx *context.Context, email *parsemail
 func (h *SpamBlockHook) SettingsHtml(ctx *context.Context, url string, requestData string) string {
 	switch {
 	// 获取用户设置
-	case strings.Contains(url, "getSetting"):
-		return h.getSettingResponse(ctx.UserID)
+	case strings.HasSuffix(url, "getSetting"):
+		return h.settingController.GetSetting(ctx.UserID)
 	// 更新设置
-	case strings.Contains(url, "updateSetting"):
-		return h.updateSetting(ctx.UserID, requestData)
+	case strings.HasSuffix(url, "updateSetting"):
+		return h.settingController.UpdateSetting(ctx.UserID, requestData)
 	// 测试模型
-	case strings.Contains(url, "testModel"):
-		return h.testModelResponse(requestData)
+	case strings.HasSuffix(url, "testModel"):
+		return h.settingController.TestModel(requestData)
 	default:
 		return SettingHtml
 	}
 }
 
-// getSetting 获取用户设置
-func (h *SpamBlockHook) getSetting(userID int) *model.SpamBlockSetting {
-	setting, err := h.settingService.GetSetting(userID)
-	if err != nil {
-		logger.PluginLogger.Error().Err(err).Msg("获取用户设置失败")
-		return nil
-	}
-	return setting
-}
-
 // spamBlock 垃圾邮件处理
 func (h *SpamBlockHook) spamBlock(userID int, email *parsemail.Email) {
-	setting := h.getSetting(userID)
-	if setting == nil {
-		logger.PluginLogger.Error().Int("user_id", userID).Msg("获取用户设置失败")
+	setting, err := h.settingService.GetSetting(userID)
+	if err != nil {
+		logger.PluginLogger.Error().Err(err).Int("user_id", userID).Msg("获取用户设置失败")
 		return
 	}
 	if setting.ApiUrl == "" {
 		logger.PluginLogger.Warn().Int("user_id", userID).Msg("模型API接口地址为空")
 		return
 	}
-	content, err := getEmailContent(email)
+	content, err := classifier.GetEmailContent(email)
 	if err != nil {
 		logger.PluginLogger.Warn().Err(err).Str("subject", email.Subject).Msg("获取邮件内容失败")
 		return
 	}
 
-	respData, err := getModelResponse(fmt.Sprintf("%s %s", email.Subject, content), setting.ApiUrl, time.Duration(setting.Timeout)*time.Millisecond)
+	respData, err := classifier.GetModelResponse(fmt.Sprintf("%s %s", email.Subject, content), setting.ApiUrl, time.Duration(setting.Timeout)*time.Millisecond)
 	if err != nil {
 		logger.PluginLogger.Error().Err(err).Msg("获取模型响应失败")
 		return
 	}
 
-	classes, err := getClasses(respData)
+	classes, err := classifier.GetClasses(respData)
 	if err != nil {
 		logger.PluginLogger.Error().Err(err).Msg("获取分类结果失败")
 		return
 	}
 
-	maxScore := maxScore(classes)
-	maxClass := maxClass(classes)
+	maxScore := classifier.MaxScore(classes)
+	maxClass := classifier.MaxClass(classes)
 	switch maxClass {
-	case CLASS_NORMAL:
-		logger.PluginLogger.Debug().Int("user_id", userID).Str("subject", email.Subject).Msg("邮件为正常邮件")
-	case CLASS_AD:
+	case classifier.ClassNormal:
+		logger.PluginLogger.Info().Int("user_id", userID).Str("subject", email.Subject).Msg("邮件为正常邮件")
+	case classifier.ClassAd:
 		logger.PluginLogger.Info().Int("user_id", userID).Str("subject", email.Subject).Msg("邮件为广告邮件")
-	case CLASS_SPAM:
+	case classifier.ClassSpam:
 		logger.PluginLogger.Info().Int("user_id", userID).Str("subject", email.Subject).Msg("邮件为垃圾邮件")
 	}
 
@@ -189,7 +180,7 @@ func (h *SpamBlockHook) spamBlock(userID int, email *parsemail.Email) {
 	}
 
 	// 如果分类结果为正常邮件，直接返回
-	if maxClass == CLASS_NORMAL {
+	if maxClass == classifier.ClassNormal {
 		return
 	}
 
@@ -197,7 +188,7 @@ func (h *SpamBlockHook) spamBlock(userID int, email *parsemail.Email) {
 	// 如果分类结果为诈骗邮件，设置状态为已删除
 	// 如果分类结果为广告邮件，设置状态为广告邮件
 	if maxScore > setting.Threshold {
-		if maxClass == CLASS_SPAM {
+		if maxClass == classifier.ClassSpam {
 			email.Status = int(STATUS_DELETED)
 		} else {
 			email.Status = int(STATUS_AD)

@@ -1,7 +1,7 @@
 package model
 
-// SpamBlockSetting 垃圾邮件插件设置
-type SpamBlockSetting struct {
+// SpamBlockSettingModel 垃圾邮件插件设置
+type SpamBlockSettingModel struct {
 	ID        int     `xorm:"id pk autoincr comment('主键')" json:"-"`
 	UserID    int     `xorm:"user_id int index('idx_uid') comment('用户id') unique('idx_uid')" json:"-"`
 	ApiUrl    string  `xorm:"api_url varchar(255) index('idx_url') index comment('api url')" json:"api_url"`
@@ -10,6 +10,6 @@ type SpamBlockSetting struct {
 }
 
 // TableName 表名
-func (u *SpamBlockSetting) TableName() string {
+func (u *SpamBlockSettingModel) TableName() string {
 	return "plugin_spam_block_setting"
 }

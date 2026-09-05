@@ -7,7 +7,6 @@ import (
 	"github.com/Jinnrry/pmail/config"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	"github.com/ydzydzydz/pmail_spam_block/dao"
 	"github.com/ydzydzydz/pmail_spam_block/model"
 	_ "modernc.org/sqlite"
 	"xorm.io/xorm"
@@ -54,7 +53,7 @@ func getDB(cfg *config.Config) (*xorm.Engine, error) {
 	// 关闭 SQL 日志记录
 	db.ShowSQL(false)
 	// 同步数据库模型
-	db.Sync2(new(model.SpamBlockSetting))
+	db.Sync2(new(model.SpamBlockSettingModel))
 	return db, nil
 }
 
@@ -91,12 +90,12 @@ func initSqlite(dsn string) (*xorm.Engine, error) {
 	return db, nil
 }
 
-// SettingDao 返回设置数据访问对象
-func (d *DataSource) SettingDao() dao.ISettingDao {
-	return dao.NewSettingDaoImpl(d.db)
+// DB 返回数据库引擎
+func (d *DataSource) DB() *xorm.Engine {
+	return d.db
 }
 
-// UserDao 返回用户数据访问对象
-func (d *DataSource) UserDao() dao.IUserDao {
-	return dao.NewUserDaoImpl(d.db)
+// Close 关闭数据库连接
+func (d *DataSource) Close() error {
+	return d.db.Close()
 }

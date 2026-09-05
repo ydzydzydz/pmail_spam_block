@@ -1,4 +1,4 @@
-package hook
+package classifier
 
 import (
 	"bytes"
@@ -13,20 +13,32 @@ import (
 	"github.com/ydzydzydz/pmail_spam_block/logger"
 )
 
+// Class 模型结果分类
+type Class int
+
+const (
+	ClassNormal Class = iota // 正常邮件
+	ClassAd                  // 广告邮件
+	ClassSpam                // 诈骗邮件
+)
+
+// ModelResponse 模型响应
 type ModelResponse struct {
 	Predictions [][]float64 `json:"predictions"`
 }
 
+// ModelRequest 模型请求
 type ModelRequest struct {
 	Instances []InstanceItem `json:"instances"`
 }
 
+// InstanceItem 模型请求实例
 type InstanceItem struct {
 	Token []string `json:"token"`
 }
 
-// getEmailContent 获取邮件内容
-func getEmailContent(email *parsemail.Email) (string, error) {
+// GetEmailContent 获取邮件内容
+func GetEmailContent(email *parsemail.Email) (string, error) {
 	content := tools.Trim(tools.TrimHtml(string(email.HTML)))
 	if content == "" {
 		content = tools.Trim(string(email.Text))
@@ -37,8 +49,8 @@ func getEmailContent(email *parsemail.Email) (string, error) {
 	return content, nil
 }
 
-// getModelResponse 获取模型响应
-func getModelResponse(content string, url string, timeout time.Duration) (respData *ModelResponse, err error) {
+// GetModelResponse 获取模型响应
+func GetModelResponse(content string, url string, timeout time.Duration) (respData *ModelResponse, err error) {
 	reqData := ModelRequest{
 		Instances: []InstanceItem{
 			{
@@ -79,8 +91,8 @@ func getModelResponse(content string, url string, timeout time.Duration) (respDa
 	return respData, nil
 }
 
-// getClasses 获取分类结果
-func getClasses(respData *ModelResponse) ([]float64, error) {
+// GetClasses 获取分类结果
+func GetClasses(respData *ModelResponse) ([]float64, error) {
 	if len(respData.Predictions) == 0 {
 		return nil, fmt.Errorf("响应数据格式错误")
 	}
@@ -91,8 +103,8 @@ func getClasses(respData *ModelResponse) ([]float64, error) {
 	return classes, nil
 }
 
-// maxScore 获取最大分数
-func maxScore(classes []float64) float64 {
+// MaxScore 获取最大分数
+func MaxScore(classes []float64) float64 {
 	var maxScore float64
 	for _, score := range classes {
 		if score > maxScore {
@@ -102,8 +114,8 @@ func maxScore(classes []float64) float64 {
 	return maxScore
 }
 
-// maxClass 获取最大分数对应的分类
-func maxClass(classes []float64) Class {
+// MaxClass 获取最大分数对应的分类
+func MaxClass(classes []float64) Class {
 	var maxScore float64
 	var maxClass int
 	for i, score := range classes {

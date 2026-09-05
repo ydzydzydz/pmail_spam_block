@@ -38,3 +38,4 @@ __screenshots__/
 config/*.json
 pmail_spam_block*
 *.db
+results/

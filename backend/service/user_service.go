@@ -1,4 +1,4 @@
-package dao
+package service
 
 import (
 	"errors"
@@ -7,15 +7,18 @@ import (
 	"xorm.io/xorm"
 )
 
-// UserDaoImpl 用户数据访问层实现
-type UserDaoImpl struct {
+// UserService 用户服务层
+type UserService struct {
 	db *xorm.Engine
 }
 
-var _ IUserDao = (*UserDaoImpl)(nil)
+// NewUserService 创建用户服务层
+func NewUserService(db *xorm.Engine) *UserService {
+	return &UserService{db: db}
+}
 
 // GetUserID 获取用户ID
-func (u *UserDaoImpl) GetUserID(account string) (int, error) {
+func (u *UserService) GetUserID(account string) (int, error) {
 	var user models.User
 	has, err := u.db.Where("account = ?", account).Get(&user)
 	if err != nil {
@@ -25,9 +28,4 @@ func (u *UserDaoImpl) GetUserID(account string) (int, error) {
 		return 0, errors.New("user not found")
 	}
 	return user.ID, nil
-}
-
-// NewUserDaoImpl 创建用户数据访问层实现
-func NewUserDaoImpl(db *xorm.Engine) *UserDaoImpl {
-	return &UserDaoImpl{db: db}
 }
